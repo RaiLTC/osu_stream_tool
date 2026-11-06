@@ -15,6 +15,8 @@
   <button class="btn" id="skinBtn" title="Import an .osk skin: circles, numbers, approach circle, slider ball and combo colours">Import skin</button>
   <input type="file" id="skinFile" accept=".osk,.zip" multiple hidden>
   <button class="btn primary" id="import">Import .osz</button>
+  <button class="btn" id="recent" title="Maps you imported are kept in this browser with your edits. Open one without picking the file again">Recent</button>
+  <span id="saveInd" class="hint" style="margin:0" role="status"></span>
   <button class="btn" id="export" disabled>Export</button>
 </header>
 <div id="topbar"><canvas id="tt" aria-label="Snap timeline"></canvas><div id="tzc" title="Timeline zoom (Alt+wheel). Click the number to reset"><button id="tzo" aria-label="Zoom out">&minus;</button><button id="tzv">1.0x</button><button id="tzi" aria-label="Zoom in">+</button></div></div>
@@ -122,6 +124,12 @@
   <div class="hint" style="margin:0">Slider moves in 0.05 steps. Hold Ctrl while dragging for slow, 0.01 precision.</div>
   <div class="svbtns"><button id="svDel">Delete point</button><button id="svOk">Done</button></div>
 </div>
+<dialog id="recdlg" style="width:min(560px,92vw)">
+  <h2 style="margin:0 0 6px;font-size:15px">Recent maps</h2>
+  <div class="hint" style="margin:0 0 10px">Stored only in this browser. Your edits are saved automatically; Export is still how you get the map back into osu!.</div>
+  <div id="recList"></div>
+  <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn" id="recClose">Close</button></div>
+</dialog>
 <dialog id="rotdlg" style="width:min(400px,92vw)">
   <h2 style="margin:0 0 10px;font-size:15px">Rotate by</h2>
   <div class="hint" style="margin:0 0 6px">Enter an angle to rotate by:</div>

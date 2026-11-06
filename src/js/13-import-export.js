@@ -115,17 +115,20 @@ function useDiff(i){
   }
   return true;
 }
-function loadOsz(f){
+/* sess: undefined = restore saved progress for this exact file if there is any, null = open it fresh, object = restore that session */
+function loadOsz(f,sess){
   if(!window.JSZip){alert('The .osz reader could not load (it needs internet access to cdnjs). Try again, or import the .osu and audio files separately.');return}
-  var buf=null;f.arrayBuffer().then(function(b){buf=b;return JSZip.loadAsync(b)}).then(function(zip){
+  var buf=null,sv=null;return f.arrayBuffer().then(function(b){buf=b;return Promise.all([JSZip.loadAsync(b),sess!==undefined?sess:lsSession(f.name+':'+b.byteLength)])}).then(function(r){var zip=r[0];sv=r[1];
     var names=Object.keys(zip.files).filter(function(n){return /\.osu$/i.test(n)});
     if(!names.length){alert('No difficulties found in that .osz.');return}
     return Promise.all(names.map(function(n){return zip.files[n].async('string')})).then(function(texts){
       var ds=texts.map(function(t,i){var v=t.match(/^Version:(.*)$/m);return{text:t,name:v?v[1].trim():names[i],fname:names[i]}});
-      st.osz={zip:zip,ds:ds,buf:buf,name:f.name};st.audioName=null;st.stash={};st.dIdx=null;
+      st.osz={zip:zip,ds:ds,buf:buf,name:f.name};st.audioName=null;st.stash=(sv&&sv.stash)||{};st.dIdx=null;
       var sel=$('diff');sel.innerHTML='';
       ds.forEach(function(d,i){var o=document.createElement('option');o.value=i;o.textContent=d.name;sel.appendChild(o)});
-      useDiff(0);
+      useDiff(sv&&sv.dIdx!=null&&ds[sv.dIdx]?sv.dIdx:0);
+      if(sv&&sv.stash){if(sv.ph!=null){st.ph=sv.ph;center()}draw();toast('Restored your saved progress')}
+      autoSaveSoon();
     });
   }).catch(function(){alert('Could not read that .osz file.')});
 }
@@ -143,7 +146,7 @@ $('file').onchange=function(e){
   var oszf=fs.filter(function(f){return /\.osz$/i.test(f.name)})[0];
   if(oszf){loadOsz(oszf);return}
   var osu=fs.filter(function(f){return /\.osu$/i.test(f.name)})[0],au=fs.filter(function(f){return !/\.osu$/i.test(f.name)})[0];
-  if(osu)osu.text().then(function(t){if(parseOsu(t,osu.name)){st.osz=null;st.cur={text:t,fname:osu.name}}if(au&&st.map)loadAudio(au)});
+  if(osu)osu.text().then(function(t){openOsuText(t,osu.name,au)});
   else if(au&&st.map)loadAudio(au);
 };$('close').onclick=function(){$('dlg').close()};
 $('copy').onclick=function(){$('out').select();try{navigator.clipboard.writeText($('out').value)}catch(e){document.execCommand('copy')}$('copy').textContent='Copied';setTimeout(function(){$('copy').textContent='Copy'},1200)};

@@ -30,6 +30,7 @@ tests/                smoke test + fixture map
 | `09-rotation` / `10-scale` | rotate / scale dialogs and selection box |
 | `11-stream-aim` | Shift aim preview, mirror (M) |
 | `12-playback` / `13-import-export` | audio playback, .osz import / export, startup |
+| `14-local-save` | local library: imported maps and autosaved edits kept in the browser (IndexedDB), "Recent" dialog |
 
 The files are joined into one scope by the build (they share state), so they are fragments rather than ES modules. Splitting them into real modules is the next refactor.
 
