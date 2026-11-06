@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Stream Maker</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app">
+<header>
+  <h1>Stream Maker</h1>
+  <input type="file" id="file" accept=".osz,.osu,audio/*" multiple hidden>
+  <select id="skinSel" class="btn" title="Skin"><option value="default">Default skin (lazer legacy)</option></select>
+  <button class="btn" id="skinBtn" title="Import an .osk skin: circles, numbers, approach circle, slider ball and combo colours">Import skin</button>
+  <input type="file" id="skinFile" accept=".osk,.zip" multiple hidden>
+  <button class="btn primary" id="import">Import .osz</button>
+  <button class="btn" id="export" disabled>Export</button>
+</header>
+<div id="topbar"><canvas id="tt" aria-label="Snap timeline"></canvas><div id="tzc" title="Timeline zoom (Alt+wheel). Click the number to reset"><button id="tzo" aria-label="Zoom out">&minus;</button><button id="tzv">1.0x</button><button id="tzi" aria-label="Zoom in">+</button></div></div>
+<main>
+  <nav class="tools" aria-label="Tools">
+    <button class="tool" data-tool="select" aria-pressed="true" title="Select (1 or V): select, move and box-select circles, sliders and streams"><svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-2 6z"/></svg></button>
+    <button class="tool" data-tool="circle" aria-pressed="false" title="Place circle (2): click to place a circle at the playhead time"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg></button>
+    <button class="tool" data-tool="slider" aria-pressed="false" title="Place slider (3): click the head, click to add points, right-click to finish"><svg viewBox="0 0 24 24"><path d="M5 17C9 17 9 7 14 7s5 6 5 6"/><circle cx="5" cy="17" r="2.2"/><circle cx="19" cy="13" r="2.2"/></svg></button>
+    <button class="tool" data-tool="stream" aria-pressed="false" title="Stream tool (4): place a run of circles by dragging. Options appear on the left"><svg viewBox="0 0 24 24"><circle cx="5" cy="17" r="2.4"/><circle cx="10" cy="12" r="2.4"/><circle cx="15" cy="9" r="2.4"/><circle cx="20" cy="7" r="2.4"/></svg></button>
+    <button class="tool" data-tool="delete" aria-pressed="false" title="Delete tool (D): click a circle or object to remove it. Right-click and Delete also work"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg></button>
+    <div class="sep"></div>
+    <button class="tool" id="flipH" aria-pressed="false" title="Flip horizontally (H)"><svg viewBox="0 0 24 24"><path d="M12 4v16M8 8l-5 4 5 4zM16 8l5 4-5 4z"/></svg></button>
+    <button class="tool" id="flipV" aria-pressed="false" title="Flip vertically (J)"><svg viewBox="0 0 24 24"><path d="M4 12h16M8 8l4-5 4 5zM8 16l4 5 4-5z"/></svg></button>
+    <button class="tool" id="rev" aria-pressed="false" title="Reverse path (R)"><svg viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg></button>
+    <div class="sep"></div>
+    <button class="tool" id="ncBtn" aria-pressed="false" title="Toggle new combo on selected circles (Q)"><svg viewBox="0 0 24 24"><path d="M6 21V4M6 4h12l-3 4 3 4H6"/></svg></button>
+    <button class="tool" id="showBtn" aria-pressed="false" title="View (A): normal / all circles / fade + path line on top"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    <div class="sep"></div>
+    <button class="tool" id="play" aria-pressed="false" title="Play / pause (Space)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button>
+    <button class="tool" id="clear" aria-pressed="false" title="Delete the selected stream"><svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg></button>
+  </nav>
+  <template id="linTpl">    <button class="tool" id="linBtn" aria-pressed="true" title="Linear placement (L): the circle count follows the map SV and the stream length. Applies to new streams and to the selected stream"><svg viewBox="0 0 24 24"><path d="M4 20L20 4"/><circle cx="4" cy="20" r="2"/><circle cx="20" cy="4" r="2"/></svg></button>
+    <button class="tool" id="spdBtn" aria-pressed="false" title="Draw spacing (E): off = even spacing along the stroke, on = by cursor speed (slow = tight circles)"><svg viewBox="0 0 24 24"><path d="M3 18c4 0 5-12 9-12s5 12 9 12"/></svg></button>
+</template>
+  <div class="opts" id="opts">
+    <div class="grp" data-g="select"><h3>Select</h3>
+      <button class="obtn" id="cvsBtn" title="Replace the selected slider with a stream: one circle per snap step along its path (Ctrl+Shift+F)">Convert slider to stream (Ctrl+Shift+F)</button>
+      <div class="note" title="Selected slider: drag its squares to reshape, Ctrl+click the body to add a point, right-click a square for options, drag the ring at the tail to change the length.">Click: select. Drag: move. Shift/Ctrl+click: more. Delete: remove.</div></div>
+    <div class="grp" data-g="circle"><h3>Place circle</h3>
+      <button class="obtn" id="pncBtn" aria-pressed="false" title="New combo on the circles you place (Q on a selection toggles it afterwards)">New combo</button>
+      <div class="note">Click to place a circle at the playhead time, on the current snap.</div></div>
+    <div class="grp" data-g="slider"><h3>Place slider</h3>
+      <button class="obtn" data-sltype="auto" aria-pressed="true">Auto curve</button>
+      <button class="obtn" data-sltype="linear" aria-pressed="false">Linear</button>
+      <button class="obtn" data-sltype="bezier" aria-pressed="false">Bezier</button>
+      <button class="obtn" data-sltype="perfect" aria-pressed="false">Perfect circle</button>
+      <button class="obtn" data-sltype="catmull" aria-pressed="false">Catmull</button>
+      <div class="note">Click the head, click to add points, click the last point again for a red anchor. Right-click finishes. Tab cycles the curve, Esc cancels.</div></div>
+    <div class="grp" data-g="stream"><h3>Stream</h3>
+      <button class="obtn" data-sub="add" aria-pressed="true" title="Drag to place a run of circles (4)">Place (drag)</button>
+      <button class="obtn" data-sub="draw" aria-pressed="false" title="Freehand: circles follow your stroke (P)">Draw</button>
+      <button class="obtn" data-sub="bend" aria-pressed="false" title="Drag the line through the selected circles to reshape them (B)">Bend</button>
+      <div class="sep" style="height:1px;background:var(--line);margin:8px 0"></div>
+      <div id="optToggles"></div>
+      <div class="note">Right-click while dragging bends the path. Wheel while dragging changes the count. Ctrl/Shift-drag from a stream's last circle continues it.</div></div>
+  </div>
+  <section class="stage"><canvas id="cv" width="1280" height="1024" aria-label="osu! playfield"></canvas></section>
+  <aside>
+    <h2>Map</h2>
+    <div class="stat"><span>Song</span><b id="mName">-</b></div>
+    <div class="row full"><label for="diff">Difficulty</label><select id="diff" disabled></select></div>
+    <div class="stat"><span>CS / AR / OD</span><b id="mStats">-</b></div>
+    <div class="row"><label for="stk" title="osu! stacks objects at the same place when they are close in time. Higher = objects further apart in time still stack (the 0 to 10 slider is StackLeniency 0 to 1). Saved into the exported difficulty.">Stack leniency</label><span style="display:flex;align-items:center;gap:6px"><input id="stk" type="range" min="0" max="10" step="1" value="7" style="width:96px"><b id="stkV">7</b></span></div>
+    <div class="row"><label for="bsv" title="The map's base slider velocity (SliderMultiplier, 0.4 to 3.6). Stream spacing is 100 x this x the SV at that time, divided by the snap. It is saved into the exported difficulty. Note it also changes how fast the original sliders in the map move.">Base slider velocity</label><input id="bsv" type="number" step="0.01" min="0.4" max="3.6" value="1.4"></div>
+    <div class="row"><label for="smS" title="Streams only: use this base velocity instead of the map's when placing and spacing streams (leave empty to follow the map). Not exported; the map's sliders keep the real base velocity.">Stream base velocity</label><input id="smS" type="number" step="0.01" min="0.4" max="3.6" placeholder="map"></div>
+    <div class="row"><label for="svS" title="Streams only: use this SV multiplier instead of the timing point's (e.g. 1.5 at a base of 1.4 gives 2.1x). Leave empty to follow the map's SV at that time.">Stream SV</label><input id="svS" type="number" step="0.01" min="0.1" max="10" placeholder="map"></div>
+    <div class="hint" id="strNow">Streams follow the map</div>
+    <div class="stat"><span>Velocity at playhead</span><b id="svNow">-</b></div>
+    <div class="stat"><span>Objects</span><b id="mObjs">-</b></div>
+    <div class="stat"><span>Timing points</span><b id="mTp">-</b></div>
+    <div class="stat"><span>Audio</span><b id="mAud">-</b></div>
+    <h2>Timeline</h2>
+    <div class="row"><label for="snap">Snap</label><select id="snap"><option value="1">1/1</option><option value="2">1/2</option><option value="3">1/3</option><option value="4" selected>1/4</option><option value="6">1/6</option><option value="8">1/8</option><option value="12">1/12</option><option value="16">1/16</option></select></div>
+    <h2>Stream</h2>
+    <div class="row"><label for="start">Start (mm:ss:mmm)</label><input id="start" type="text" value="00:00:000"></div>
+    <div class="row"><label for="bsnap">Stream snap</label><select id="bsnap"><option value="1">1/1</option><option value="2">1/2</option><option value="3">1/3</option><option value="4" selected>1/4</option><option value="6">1/6</option><option value="8">1/8</option><option value="12">1/12</option><option value="16">1/16</option></select></div>
+    <div class="row"><label for="count">Circles</label><input id="count" type="number" value="16" min="2" max="500"></div>
+    <div style="display:none"><div class="row full"><label for="bias" title="Re-spaces the selected circles along the same shape. Left: deccel (gaps shrink evenly). Right: accel. The first and last circle stay on the shape.">Spacing</label><input id="bias" type="range" min="-100" max="100" value="0"></div>
+    <div class="hint" id="biasHint">Even spacing</div>
+    <label class="chk" style="display:flex;gap:8px;align-items:center;margin:2px 0 8px;font-size:12px" title="Off: the last circle stays where it is and the spacing is squeezed in between. On: the average gap keeps its size and every gap follows the accel/decel ramp, so the last circle moves along and the stream gets longer."><input type="checkbox" id="biasFree"> End circle moves with spacing</label>
+    </div>
+    <label class="row" style="gap:8px;justify-content:flex-start" title="On: the last circle moves as the gaps grow or shrink. Off: the last circle stays put and the gaps are redistributed with the same step."><input type="checkbox" id="stepEnd" checked> End circle moves with spacing</label>
+    <div class="row full"><label for="stepSl" title="Re-spaces the selected circles: every gap is this many SV bigger (or smaller, if negative) than the one before, like a constant slider-velocity step. The slider moves in 0.001 SV; hold Shift for 0.01. Type any value in the box. The last circle moves along.">Spacing (SV step)</label><div style="display:flex;gap:8px;align-items:center;width:100%"><input id="stepSl" type="range" min="-500" max="500" step="1" value="0" style="flex:1"><input id="biasStep" type="number" step="0.001" value="0" style="width:74px"></div></div>
+    <div class="hint" id="stepHint">Off</div>
+    <div style="display:none"><div class="row full"><label for="bfoc" title="Where the spacing curve acts. Middle: gradual change over the whole run. Left: the change happens mostly near the start. Right: mostly near the end.">Bias</label><input id="bfoc" type="range" min="-100" max="100" value="0"></div>
+    <div class="hint" id="focHint">Spread over the whole run</div></div>
+    <div style="display:none"><div class="row full"><label for="brch" title="How many circles the Bias spreads over. 0%: tight on the end the Bias points to. 100%: across the whole run.">Reach</label><input id="brch" type="range" min="0" max="100" value="0"></div>
+    <div class="hint" id="rchHint">Tight</div></div>
+    <div style="display:none"><div class="row full"><label for="pvt" title="0%: the biggest gap keeps its current size, so the stream just gets shorter (the last circle moves most). 100%: the stream keeps its length and the last circle stays put. In between: every gap changes and the last circle moves less.">Keep length</label><input id="pvt" type="range" min="0" max="100" value="0"></div>
+    <div class="hint" id="pvtHint">Last circle moves freely</div></div>
+    <div class="row"><label for="nc">Combo every</label><input id="nc" type="number" value="0" min="0" title="0 = only first circle"></div>
+    <h2>Info</h2>
+    <div class="stat"><span>BPM at start</span><b id="iBpm">-</b></div>
+    <div class="stat"><span>Points</span><b id="iPts">0</b></div>
+    <div class="stat"><span>Path length</span><b id="iLen">0 px</b></div>
+    <div class="stat"><span>Avg spacing</span><b id="iAvg">-</b></div>
+    <div class="stat"><span>Min / max spacing</span><b id="iMM">-</b></div>
+    <div class="stat"><span>Time span</span><b id="iDur">-</b></div>
+    <div class="stat"><span>Selected</span><b id="iSel">-</b></div>
+    <div class="stat"><span>Angle (2 selected)</span><b id="iAng">-</b></div>
+    <div class="stat"><span>Circle</span><b id="iCir">-</b></div>
+    <p class="hint">Circles are the only data. Add tool: drag to place a pattern (even spacing, or exact SV spacing with L); right-click while dragging bends the path smoothly from that point, a second right-click on the same spot makes a corner; the wheel adds or removes circles. Right-click (in the field or on the timeline) deletes the selected circles, or the circle under the cursor when nothing is selected. Pressing on a selected circle always moves the selection, whatever tool is active (hold Alt to draw/add from there instead). Selecting: click = one circle; Shift+click = the whole pattern it belongs to (or everything between it and the one circle already selected); Ctrl+click = the entire stream; click empty space to deselect. Dragging from a stream\u2019s last circle continues it with its own spacing: Ctrl+drag = straight, Shift+drag = perfect curve (circular arc), Ctrl+Shift+drag = bezier curve; the new pattern is selected. Draw tool: freehand; with circles selected a new stroke re-draws that section. Bend tool (5 or B): with a run of circles selected, a line is drawn through them; drag the line to reshape the selection, the wheel changes how wide the bend is. Spacing curve, circle count and Alt+wheel (distance spacing) act on the selected circles only. SV points live in the lower strip of the top timeline: Ctrl+click adds one, click opens its menu. Ctrl+C / X / V copy, cut and paste, A cycles the view, G shows the whole selected stream at once.</p>
+  </aside>
+</main>
+<footer><div class="clockbox"><div class="clock" id="clock" title="Playhead time (mm:ss:mmm)">00:00:000</div><div class="cbrow"><label for="vol">Vol</label><input id="vol" type="range" min="0" max="100" value="30" aria-label="Volume"><span id="volv">30%</span></div>
+<div class="cbrow"><span id="cbpm">-</span><select id="rate" title="Playback speed" disabled><option value="0.25">0.25x</option><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option></select></div></div><canvas id="tl" aria-label="Timeline"></canvas></footer>
+</div>
+<div id="menu" role="menu"></div>
+<input id="arcIn" type="number" step="0.1" min="1" max="359" aria-label="Arc angle in degrees">
+<div id="svmenu" role="dialog" aria-label="Slider velocity point">
+  <div class="svrow"><span>Time</span><b id="svT">-</b></div>
+  <div class="svrow"><span>Inherited SV</span><b id="svInh">-</b></div>
+  <div class="svrow"><label for="svNum">SV</label><input id="svNum" type="number" min="0.01" max="10" step="0.01"></div>
+  <input id="svRange" type="range" min="0.1" max="10" step="0.01" value="1" aria-label="SV">
+  <div class="hint" style="margin:0">Slider moves in 0.05 steps. Hold Ctrl while dragging for slow, 0.01 precision.</div>
+  <div class="svbtns"><button id="svDel">Delete point</button><button id="svOk">Done</button></div>
+</div>
+<dialog id="rotdlg" style="width:min(400px,92vw)">
+  <h2 style="margin:0 0 10px;font-size:15px">Rotate by</h2>
+  <div class="hint" style="margin:0 0 6px">Enter an angle to rotate by:</div>
+  <div style="display:flex;gap:10px;align-items:center;margin:0 0 12px"><input type="range" id="rotAng" min="0" max="360" step="1" value="0" style="flex:1"><input type="number" id="rotNum" min="0" max="360" step="1" value="0" style="width:64px"><span>&deg;</span></div>
+  <div style="display:flex;gap:10px">
+    <fieldset style="flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px"><legend style="font-size:12px">Direction</legend>
+      <label style="display:block"><input type="radio" name="rotDir" id="rotCW" checked> Clockwise</label><label style="display:block"><input type="radio" name="rotDir" id="rotACW"> Anti-Clockwise</label></fieldset>
+    <fieldset style="flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px"><legend style="font-size:12px">Origin</legend>
+      <label style="display:block"><input type="radio" name="rotOr" id="rotPlay" checked> Playfield Centre</label><label style="display:block" id="rotSelL"><input type="radio" name="rotOr" id="rotSel"> Selection Centre</label></fieldset></div>
+  <div class="dlgbtns"><button class="btn primary" id="rotOk">OK</button><button class="btn" id="rotNo">Cancel</button></div>
+</dialog>
+<dialog id="scdlg" style="width:min(400px,92vw)">
+  <h2 style="margin:0 0 10px;font-size:15px">Scale by</h2>
+  <div class="hint" style="margin:0 0 6px">Scale the selected objects' spacing by:</div>
+  <div style="display:flex;gap:10px;align-items:center;margin:0 0 12px"><input type="range" id="scF" min="0.1" max="3" step="0.001" value="1" style="flex:1"><input type="number" id="scNum" min="0.05" max="10" step="0.01" value="1" style="width:74px"><span>&times;</span></div>
+  <div style="display:flex;gap:10px">
+    <fieldset style="flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px"><legend style="font-size:12px">Origin</legend>
+      <label style="display:block"><input type="radio" name="scOr" id="scPlay" checked> Playfield Centre</label><label style="display:block" id="scSelL"><input type="radio" name="scOr" id="scSel"> Selection Centre</label></fieldset>
+    <fieldset style="flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px"><legend style="font-size:12px">Apply to</legend>
+      <label style="display:block"><input type="checkbox" id="scX" checked> X-axis</label><label style="display:block"><input type="checkbox" id="scY" checked> Y-axis</label></fieldset></div>
+  <div class="dlgbtns"><button class="btn primary" id="scOk">OK</button><button class="btn" id="scNo">Cancel</button></div>
+</dialog>
+<dialog id="dlg">
+  <h2 style="margin:0 0 10px;font-size:15px">Export</h2>
+  <div style="display:flex;flex-direction:column;gap:8px;margin:0 0 10px">
+    <button class="btn" id="exMap">Export map</button>
+    <button class="btn primary" id="exBoth">Export map and original map backup</button></div>
+  <label class="chk" style="display:flex;gap:8px;align-items:center;margin:0 0 8px;font-size:13px"><input type="checkbox" id="expNew"> Add as a new difficulty instead of replacing this one</label>
+  <input type="text" id="expName" maxlength="60" placeholder="New difficulty name" style="display:none;width:100%;box-sizing:border-box;margin:0 0 8px;padding:6px 8px;background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:6px;font-size:13px">
+  <div class="hint" id="expInfo" style="margin:0 0 8px"></div>
+  <div id="zipAsk" style="display:none;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px"><div id="zipTxt" style="margin:0 0 8px"></div><div style="display:flex;gap:8px"><button class="btn primary" id="zipYes">Save as .zip</button><button class="btn" id="zipNo">No, cancel</button></div></div>
+  <details style="margin:0 0 8px"><summary class="hint" style="cursor:pointer">Just the text lines instead</summary><textarea id="out" readonly></textarea></details>
+  <div class="dlgbtns"><button class="btn" id="close">Close</button><button class="btn" id="copy">Copy text</button></div>
+</dialog>
+<script src="vendor/jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

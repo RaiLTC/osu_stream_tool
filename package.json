@@ -1,0 +1,15 @@
+{
+  "name": "osu-stream-tool",
+  "version": "0.1.0",
+  "description": "Browser-based osu!standard editor focused on streams: import .osz/.osu, shape streams, circles and sliders, export a real .osz.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "serve": "npm run build && npx --yes serve dist",
+    "test": "npm run build && node tests/smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
