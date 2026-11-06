@@ -80,7 +80,10 @@ function sliderClick(m,e){var q={x:Math.round(cl(m.x,0,W)),y:Math.round(cl(m.y,0
 function finishSlider(){var S=st.slp;if(!S)return;var b=slBuild(true);st.slp=null;
   if(!b){draw();return}
   var o=newObj(b.pts[0].x,b.pts[0].y,S.time,st.pnc);o.sl={type:b.type,pts:b.pts,len:b.len,slides:1,path:b.path,cum:b.cum};addObj(o)}
-function setSlType(t){st.slType=t;document.querySelectorAll('[data-sltype]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.sltype===t)});draw()}
+function setSlType(t){st.slType=t;
+  /* with sliders selected (and no slider being placed) the buttons also retype them */
+  if(!st.slp&&t!=='auto'){var ss=selSliders();if(ss.length){var ok=ss.filter(function(o){return t!=='perfect'||o.sl.pts.length===3});if(ok.length){ok.forEach(function(o){o.sl.type=t;slRepath(o,false)});checkpoint();if(ok.length<ss.length)toast('Perfect curve needs exactly 3 points ('+(ss.length-ok.length)+' skipped)')}else toast('Perfect curve needs exactly 3 points')}}
+  document.querySelectorAll('[data-sltype]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.sltype===t)});draw()}
 function cycleSlType(d){var cur=st.slType&&st.slType!=='auto'?st.slType:(st.slp?(slBuild(true)||{type:'bezier'}).type:'bezier'),i=SLTYPES.indexOf(cur);setSlType(SLTYPES[(i+d+SLTYPES.length)%SLTYPES.length]);toast('Curve: '+st.slType)}
 function altSnapC(d,dx,dy){var a=parseKey(d.key);if(a.o)return null;var it=d.items.filter(function(q){return q.B.id===a.b})[0];if(!it||it.idx.indexOf(a.i)<0)return null;
   var B=it.B,sel=it.idx,j=(sel.indexOf(a.i-1)<0&&B.pos[a.i-1])?a.i-1:((sel.indexOf(a.i+1)<0&&B.pos[a.i+1])?a.i+1:-1);if(j<0)return null;
