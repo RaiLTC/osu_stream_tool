@@ -81,8 +81,8 @@ function finishSlider(){var S=st.slp;if(!S)return;var b=slBuild(true);st.slp=nul
   if(!b){draw();return}
   var o=newObj(b.pts[0].x,b.pts[0].y,S.time,st.pnc);o.sl={type:b.type,pts:b.pts,len:b.len,slides:1,path:b.path,cum:b.cum};addObj(o)}
 function setSlType(t){st.slType=t;
-  /* with sliders selected (and no slider being placed) the buttons also retype them */
-  if(!st.slp&&t!=='auto'){var ss=selSliders();if(ss.length){var ok=ss.filter(function(o){return t!=='perfect'||o.sl.pts.length===3});if(ok.length){ok.forEach(function(o){o.sl.type=t;slRepath(o,false)});checkpoint();if(ok.length<ss.length)toast('Perfect curve needs exactly 3 points ('+(ss.length-ok.length)+' skipped)')}else toast('Perfect curve needs exactly 3 points')}}
+  /* with sliders selected (and no slider being placed) the buttons also retype them: the selected anchors, or the whole slider */
+  if(!st.slp&&t!=='auto'){var ss=selSliders();if(ss.length){var ok=ss.filter(function(o){return slTypeApply(o,t)});if(ok.length)checkpoint();if(ok.length<ss.length)toast('Perfect curve needs 3 points in its segment'+(ok.length?' ('+(ss.length-ok.length)+' skipped)':''))}}
   document.querySelectorAll('[data-sltype]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.sltype===t)});draw()}
 function cycleSlType(d){var cur=st.slType&&st.slType!=='auto'?st.slType:(st.slp?(slBuild(true)||{type:'bezier'}).type:'bezier'),i=SLTYPES.indexOf(cur);setSlType(SLTYPES[(i+d+SLTYPES.length)%SLTYPES.length]);toast('Curve: '+st.slType)}
 function altSnapC(d,dx,dy){var a=parseKey(d.key);if(a.o)return null;var it=d.items.filter(function(q){return q.B.id===a.b})[0];if(!it||it.idx.indexOf(a.i)<0)return null;
@@ -292,7 +292,7 @@ function pasteSel(){
   if(!st.map||((!st.clip||!st.clip.length)&&!co.length)){toast('Nothing copied yet');return}
   var clipS=st.clip||[],base=Math.min.apply(0,clipS.map(function(o){return o.ft}).concat(co.map(function(c){return c.time}))),sh=snapT(st.ph)-base,off=sh===0?24:0,made=[],last=null,newO=[];
   co.forEach(function(c0){var c=JSON.parse(JSON.stringify(c0));c.time=Math.max(0,c.time+sh);c.oid=null;c.user=true;c.mod=false;c.raw=null;c.x=cl(c.x+off,0,W);c.y=cl(c.y+off,0,H);
-    if(c.sl)c.sl.pts=c.sl.pts.map(function(q){return[cl(q[0]+off,0,W),cl(q[1]+off,0,H)]});newO.push(xpt(c))});
+    if(c.sl)c.sl.pts=c.sl.pts.map(function(q){return[cl(q[0]+off,0,W),cl(q[1]+off,0,H)].concat(q.slice(2))});newO.push(xpt(c))});
   if(newO.length){newO.forEach(function(o){st.map.objs.push(o)});ovrObjs(newO);objsChanged()}
   clipS.forEach(function(o){
     var pos=JSON.parse(JSON.stringify(o.pos)).map(function(q){q.x=cl(q.x+off,0,W);q.y=cl(q.y+off,0,H);return q});
@@ -316,9 +316,11 @@ function reverseBody(B){
   if(B.ticks){var T=tickOf(B,cn-1),nt=[];for(var j=0;j<cn;j++)nt.push(T-tickOf(B,cn-1-j));B.ticks=nt}
   B.del=nd;B.ncf=nf;B.pts=[];B.psig=null;st.key=''}
 /* lazer's "reverse selection" (Ctrl+G): selected map objects keep their positions but swap places in time, and sliders run the other way */
-function reverseSlider(o){var s=o.sl,nat=slPath(s.type,s.pts,0).len,tail=s.path[s.path.length-1],np=s.pts.slice().reverse();
+function reverseSlider(o){var s=o.sl,nat=slPath(s.type,s.pts,0).len,tail=s.path[s.path.length-1],rg=slRanges(s.type,s.pts),n=s.pts.length,np=s.pts.slice().reverse();
+  s.pts.forEach(function(q,i){if(i)delete q.type});
   if(s.len<nat-.5)np[0]={x:tail.x,y:tail.y};
-  s.pts=np;if(s.type==='perfect'&&np.length!==3)s.type='bezier';slRepath(o,false)}
+  rg.forEach(function(r){var ni=n-1-r.b;if(ni===0)s.type=r.ty;else np[ni].type=r.ty}); /* each segment keeps its type but now starts at its old end */
+  s.pts=np;slRepath(o,false)}
 function reverseObjs(os){if(!os.length)return;
   var t0=Infinity,t1=-Infinity;os.forEach(function(o){t0=Math.min(t0,o.time);t1=Math.max(t1,o.end==null?o.time:o.end)});
   os.forEach(function(o){var e=o.end==null?o.time:o.end;o.time=Math.round(t1-(e-t0));o.mod=true;if(o.sl)reverseSlider(o)});

@@ -17,8 +17,20 @@ function arcLen(s,len){var c=circ3(s[0],s[1],s[2]);if(!c)return null;
   var sw2=(sw<0?-1:1)*Math.min(len/c.r,T),N=cl(Math.ceil(Math.abs(sw2)*c.r/3),8,400),out=[];
   for(var i=0;i<=N;i++){var t=t0+sw2*i/N;out.push({x:c.x+c.r*Math.cos(t),y:c.y+c.r*Math.sin(t)})}
   return out}
+/* segments of a slider, as lazer: the first one has the slider's type, every anchor with its own .type starts a new one (a duplicate "red" anchor never does) */
+function slRanges(tn,pts){var n=pts.length,r=[],i=0;
+  while(i<n-1){var j=i+1;while(j<n-1&&!(pts[j]!==pts[j-1]&&pts[j].type))j++;r.push({a:i,b:j,ty:i===0?tn:(pts[i].type||'bezier')});i=j}
+  return r}
+function plLen(a){var d=0,i;for(i=1;i<a.length;i++)d+=Math.hypot(a[i].x-a[i-1].x,a[i].y-a[i-1].y);return d}
+function slRaw(tn,pts,len){
+  if(pts.length<2)return[pts[0]];
+  var rg=slRanges(tn,pts),raw=[];
+  rg.forEach(function(r,k){var sub=pts.slice(r.a,r.b+1),pp=null;
+    if(r.ty==='perfect'&&sub.length===3&&len&&k===rg.length-1)pp=arcLen(sub,len-plLen(raw));
+    var seg=pp||segPts(r.ty,sub);raw=raw.concat(k?seg.slice(1):seg)});
+  return raw}
 function slPath(tn,pts,len){
-  var raw=pts.length>1?((tn==='perfect'&&pts.length===3&&len&&arcLen(pts,len))||segPts(tn,pts)):[pts[0]],path=[raw[0]],cum=[0];
+  var raw=slRaw(tn,pts,len),path=[raw[0]],cum=[0];
   for(var k=1;k<raw.length;k++){
     var a=path[path.length-1],b=raw[k],d=Math.hypot(b.x-a.x,b.y-a.y),tot=cum[cum.length-1];
     if(d===0)continue;
@@ -29,15 +41,17 @@ function slPath(tn,pts,len){
     path.push({x:b2.x+(b2.x-a2.x)/dd*r,y:b2.y+(b2.y-a2.y)/dd*r});cum.push(len)}
   return{path:path,cum:cum,len:len||cum[cum.length-1]}}
 function mkSlider(h,x,y){
-  var cs=h[5].split('|'),tn={B:'bezier',L:'linear',P:'perfect',C:'catmull'}[cs[0]]||'bezier',head={x:x,y:y},pts=[head],prev=head;
-  for(var i=1;i<cs.length;i++){var xy=cs[i].split(':'),nx=+xy[0],ny=+xy[1];
-    if(nx===prev.x&&ny===prev.y)pts.push(prev);else{prev={x:nx,y:ny};pts.push(prev)}}
+  var TY={B:'bezier',L:'linear',P:'perfect',C:'catmull'},cs=h[5].split('|'),tn=TY[cs[0]]||'bezier',head={x:x,y:y},pts=[head],prev=head,pend=null;
+  for(var i=1;i<cs.length;i++){
+    if(/^[A-Za-z]$/.test(cs[i])){pend=TY[cs[i]]||'bezier';continue} /* lazer writes a type letter in front of the anchor that starts a new segment */
+    var xy=cs[i].split(':'),nx=+xy[0],ny=+xy[1];
+    if(nx===prev.x&&ny===prev.y)pts.push(prev);else{prev={x:nx,y:ny};if(pend&&i<cs.length-1)prev.type=pend;pts.push(prev)}pend=null}
   var r=slPath(tn,pts,+h[7]||0);
   return{type:tn,pts:pts,path:r.path,cum:r.cum,len:r.len,slides:Math.max(1,+h[6]||1)}}
 function cpt(o){return{oid:o.oid==null?null:o.oid,x:o.x,y:o.y,time:o.time,nc:!!o.nc,raw:o.raw||null,hs:o.hs,skip:o.skip||0,mod:!!o.mod,user:!!o.user,tail:o.tail||null,ts:o.tailSlides||0,
-  sl:o.sl?{type:o.sl.type,pts:o.sl.pts.map(function(p){return[p.x,p.y]}),len:o.sl.len,slides:o.sl.slides}:null}}
+  sl:o.sl?{type:o.sl.type,pts:o.sl.pts.map(function(p,i){return i&&p.type&&p!==o.sl.pts[i-1]?[p.x,p.y,p.type]:[p.x,p.y]}),len:o.sl.len,slides:o.sl.slides}:null}}
 function xpt(c){var o={oid:c.oid,x:c.x,y:c.y,time:c.time,nc:c.nc,raw:c.raw,hs:c.hs,skip:c.skip,mod:c.mod,user:c.user,tail:c.tail,tailSlides:c.ts,num:1,end:c.time};
-  if(c.sl){var pts=[],prev=null;c.sl.pts.forEach(function(q,i){if(i&&prev&&q[0]===prev.x&&q[1]===prev.y)pts.push(prev);else{prev={x:q[0],y:q[1]};pts.push(prev)}});
+  if(c.sl){var pts=[],prev=null;c.sl.pts.forEach(function(q,i){if(i&&prev&&q[0]===prev.x&&q[1]===prev.y)pts.push(prev);else{prev={x:q[0],y:q[1]};if(i&&q[2])prev.type=q[2];pts.push(prev)}});
     var r=slPath(c.sl.type,pts,c.sl.len);o.sl={type:c.sl.type,pts:pts,path:r.path,cum:r.cum,len:r.len,slides:c.sl.slides}}
   return o}
 function sortObjs(){st.map.objs.sort(function(a,b){return a.time-b.time})}
@@ -61,9 +75,13 @@ function restoreObjs(ob){var m=st.map;if(!m||!m.base||!ob)return;
   ob.u.forEach(function(c){arr.push(xpt(c))});m.objs=arr;objsChanged()}
 function objLine(o){var x=Math.round(o.x),y=Math.round(o.y),ty=(o.sl?2:1)|(o.nc?4:0)|(o.skip||0),hs=o.hs==null?'0':o.hs,t=Math.round(o.time);
   if(!o.sl)return [x,y,t,ty,hs,o.tail||'0:0:0:0:'].join(',');
-  var sl=o.sl,tyc=sl.type;if(tyc==='perfect'&&sl.pts.length!==3)tyc='bezier';
-  var cp=[{bezier:'B',linear:'L',perfect:'P',catmull:'C'}[tyc]||'B'],i;
-  for(i=1;i<sl.pts.length;i++)cp.push(Math.round(sl.pts[i].x)+':'+Math.round(sl.pts[i].y));
+  var sl=o.sl,LT={bezier:'B',linear:'L',perfect:'P',catmull:'C'},rg=slRanges(sl.type,sl.pts),tyc=sl.type,i,cur;
+  if(tyc==='perfect'&&rg[0]&&rg[0].b-rg[0].a+1!==3)tyc='bezier';cur=tyc;
+  var cp=[LT[tyc]||'B'],bd={};rg.forEach(function(r){if(r.a>0)bd[r.a]=r.ty==='perfect'&&r.b-r.a+1!==3?'bezier':r.ty});
+  for(i=1;i<sl.pts.length;i++){var ps=Math.round(sl.pts[i].x)+':'+Math.round(sl.pts[i].y),tt=bd[i];
+    if(tt){/* new segment: an explicit letter, or (same plain type) the usual duplicated anchor */
+      if(tt!==cur||tt==='perfect'||tt==='catmull'){cp.push(LT[tt]||'B');cp.push(ps)}else if(tt==='bezier'){cp.push(ps);cp.push(ps)}else cp.push(ps);cur=tt}
+    else cp.push(ps)}
   var n=sl.slides,tail=o.tail;
   if(!tail||o.tailSlides!==n){var es=[],ez=[];for(i=0;i<=n;i++){es.push(hs);ez.push('0:0')}tail=es.join('|')+','+ez.join('|')+',0:0:0:0:'}
   return [x,y,t,ty,hs,cp.join('|'),n,+(+sl.len).toFixed(6),tail].join(',')}

@@ -5,7 +5,10 @@ var PTR=8,OFS2=null;
 function selSliders(){var r=[];if(!st.map)return r;st.csel.forEach(function(k){var a=parseKey(k);if(a.o){var o=st.map.objs[a.i];if(o&&o.sl&&r.indexOf(o)<0)r.push(o)}});return r}
 function uniqPts(o){var u=[];o.sl.pts.forEach(function(q){if(u.indexOf(q)<0)u.push(q)});return u}
 function pselOf(o){return(st.po===o&&st.psel)?st.psel.filter(function(q){return o.sl.pts.indexOf(q)>0}):[]}
-function slNorm(s){if(s.type==='perfect'&&s.pts.length!==3)s.type='bezier'}
+/* a perfect-curve segment needs exactly 3 points, otherwise it is drawn as a bezier */
+function slNorm(s){slRanges(s.type,s.pts).forEach(function(r){if(r.ty==='perfect'&&r.b-r.a+1!==3){if(r.a===0)s.type='bezier';else s.pts[r.a].type='bezier'}})}
+/* type of the segment that starts at anchor index ix (or, for the last anchor, the segment that ends there) */
+function slSegTypeAt(s,ix){var rg=slRanges(s.type,s.pts),k;for(k=0;k<rg.length;k++)if(ix>=rg[k].a&&ix<rg[k].b)return rg[k].ty;return rg.length?rg[rg.length-1].ty:s.type}
 /* lazer: after control points change, the slider length follows the path (its calculated length snapped to the beat divisor) - HitObject.SnapTo(distanceSnapProvider) */
 function slRepathSnap(o){var s=o.sl,pl=slPath(s.type,s.pts,0).len;if(pl>=2)s.len=slSnapLen(o.time,pl,s.slides||1);slRepath(o,true)}
 function slRepath(o,lenCh){var s=o.sl;slNorm(s);var r=slPath(s.type,s.pts,s.len);s.path=r.path;s.cum=r.cum;o.x=s.pts[0].x;o.y=s.pts[0].y;o.mod=true;if(lenCh)recSliders()}
@@ -49,11 +52,31 @@ function slDrag(e,m){var pd=st.pd,po=pd.o,ps=po.sl;
         ext=Pp.concat([{x:E.x+(E.x-Q.x)/dl*900,y:E.y+(E.y-Q.y)/dl*900}]),nr=nearOnLine(ext,cumOf(ext),{x:m.x-so,y:m.y-so});
     ps.len=slSnapLen(po.time,cl(nr.s,4,1e5),ps.slides);slRepath(po,true)}
   st.key='';draw()}
-function slSetType(o,t){var s=o.sl;if(t==='perfect'&&s.pts.length!==3){toast('Perfect curve needs exactly 3 points');return}
-  s.type=t;slRepath(o,false);checkpoint();draw()}
-function cycleSelSlType(d){var ss=selSliders();if(!ss.length)return false;var i=SLTYPES.indexOf(ss[0].sl.type),n=SLTYPES.length;
-  for(var k=1;k<=n;k++){var t=SLTYPES[((i+d*k)%n+n)%n];if(t==='perfect'&&ss.some(function(o){return o.sl.pts.length!==3}))continue;
-    ss.forEach(function(o){o.sl.type=t;slRepath(o,false)});checkpoint();toast('Curve: '+t);draw();return true}
+/* lazer: a type is set on an anchor and shapes the segment that starts there (up to the next anchor with its own type). Choosing Perfect on
+   an anchor makes it start a 3-point segment, so the anchor after it shapes the arc; any points beyond those 3 stay in the previous type. */
+function slSetPtType(o,qs,t){
+  var s=o.sl,P=s.pts,any=false;
+  qs.forEach(function(q){
+    var ix=P.indexOf(q);if(ix<0)return;
+    var rg0=slRanges(s.type,P),start=ix===P.length-1?rg0[rg0.length-1].a:ix,old=slSegTypeAt(s,start),had=start>0?P[start].type:s.type;
+    var restore=function(){if(start===0)s.type=had;else{if(had)P[start].type=had;else delete P[start].type}};
+    if(start===0)s.type=t;else P[start].type=t;
+    if(t==='perfect'){
+      var r=slRanges(s.type,P).filter(function(z){return z.a===start})[0],size=r?r.b-r.a+1:0;
+      if(size<3){restore();return}
+      if(size>3){if(P[start+1]===P[start]||P[start+2]===P[start+1]){restore();return}P[start+2].type=old}}
+    any=true});
+  if(any)slRepath(o,false);
+  return any}
+/* apply a type to a slider: to the selected anchors when there are some, otherwise to the whole slider */
+function slTypeApply(o,t){var s=o.sl,qs=pselOf(o);
+  if(qs.length)return slSetPtType(o,qs,t);
+  if(t==='perfect'&&s.pts.length!==3)return false;
+  s.type=t;s.pts.forEach(function(q,i){if(i)delete q.type});slRepath(o,false);return true}
+function slSetType(o,t){if(!slTypeApply(o,t)){toast('Perfect curve needs 3 points in its segment');return}checkpoint();draw()}
+function cycleSelSlType(d){var ss=selSliders();if(!ss.length)return false;var o0=ss[0],q0=pselOf(o0)[0],cur=q0?slSegTypeAt(o0.sl,o0.sl.pts.indexOf(q0)):o0.sl.type,i=SLTYPES.indexOf(cur),n=SLTYPES.length;
+  for(var k=1;k<=n;k++){var t=SLTYPES[((i+d*k)%n+n)%n];
+    if(ss.filter(function(o){return slTypeApply(o,t)}).length){checkpoint();toast('Curve: '+t);draw();return true}}
   return true}
 function slDup(o){var s=o.sl,ps=pselOf(o);if(!ps.length)return;
   ps.forEach(function(q){var ix=s.pts.indexOf(q);if(ix>=0&&s.pts[ix+1]!==q)s.pts.splice(ix+1,0,q)});
@@ -64,7 +87,7 @@ function slDelPts(o){var s=o.sl,ps=pselOf(o);if(!ps.length)return;
   st.psel=null;slRepathSnap(o);checkpoint();draw()}
 function openPtMenu(e,h){var o=h.o;if(pselOf(o).indexOf(h.q)<0){st.po=o;st.psel=[h.q]}
   var NM={linear:'Linear',bezier:'Bezier',perfect:'Perfect curve',catmull:'Catmull'};
-  menu.innerHTML=SLTYPES.map(function(t){return '<button data-a="'+t+'">'+NM[t]+(t===o.sl.type?'  \u2713':'')+'</button>'}).join('')+'<hr><button data-a="dup">Duplicate point (red anchor)</button><button data-a="del">Delete point</button>';
+  menu.innerHTML=SLTYPES.map(function(t){return '<button data-a="'+t+'">'+NM[t]+(t===slSegTypeAt(o.sl,Math.max(0,o.sl.pts.indexOf(h.q)))?'  \u2713':'')+'</button>'}).join('')+'<hr><button data-a="dup">Duplicate point (red anchor)</button><button data-a="del">Delete point</button>';
   menu.style.display='block';menu.style.left=Math.min(e.clientX,innerWidth-210)+'px';menu.style.top=Math.min(e.clientY,innerHeight-230)+'px';draw()}
 function circ3(a,b,c){var d=2*(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y));if(Math.abs(d)<1e-6)return null;
   var A=a.x*a.x+a.y*a.y,B=b.x*b.x+b.y*b.y,C=c.x*c.x+c.y*c.y,ux=(A*(b.y-c.y)+B*(c.y-a.y)+C*(a.y-b.y))/d,uy=(A*(c.x-b.x)+B*(a.x-c.x)+C*(b.x-a.x))/d;return{x:ux,y:uy,r:Math.hypot(a.x-ux,a.y-uy)}}
@@ -109,7 +132,8 @@ function drawSlPts(){
     ctx.globalAlpha=.55;ctx.strokeStyle=acc;ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.beginPath();P.forEach(function(q,i){i?ctx.lineTo(X(q.x),Y(q.y)):ctx.moveTo(X(q.x),Y(q.y))});ctx.stroke();
     var E=s.path[s.path.length-1];ctx.globalAlpha=.9;ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(X(E.x),Y(E.y),R0*S*.6,0,6.283);ctx.stroke();ctx.setLineDash([]);
     u.forEach(function(q){if(q===P[0])return;var sel=ps.indexOf(q)>=0,red=P.indexOf(q)!==P.lastIndexOf(q);
-      ctx.globalAlpha=1;ctx.beginPath();ctx.rect(X(q.x)-9,Y(q.y)-9,18,18);ctx.fillStyle=sel?acc:(red?'#e8485a':'#fff');ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=red?'#fff':acc;ctx.stroke()});
+      ctx.globalAlpha=1;ctx.beginPath();ctx.rect(X(q.x)-9,Y(q.y)-9,18,18);ctx.fillStyle=sel?acc:(red?'#e8485a':'#fff');ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=red?'#fff':acc;ctx.stroke();
+      var ix=P.indexOf(q);if(q.type&&ix<P.length-1){ctx.textAlign='center';ctx.textBaseline='middle';lbl(({linear:'L',perfect:'P',bezier:'B',catmull:'C'})[q.type]||'',X(q.x),Y(q.y)-19,13)}});
     ctx.globalAlpha=1;ctx.textAlign='center';ctx.textBaseline='middle';lbl(({linear:'Linear',bezier:'Bezier',perfect:'Perfect',catmull:'Catmull'})[s.type]||s.type,X(P[0].x),Y(P[0].y)-R0*S-14,13);
     slLabels(s.type,P,s.path,s.len);
     ctx.restore()});
