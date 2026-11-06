@@ -231,8 +231,9 @@ function render(){
     var o=objs[vis[vi]],od=o.time-st.ph,age=st.ph-o.end,fo=od>0?fadeA(od):1,al=age>0?.6*(1-age/GHOST):.6*fo,osel=st.csel.indexOf('o:'+vis[vi])>=0;
     if(o.mod||o.user){var ccO=comboI(o.ci),oage=st.ph-o.end,saO=od>0?fadeA(od):(oage>0?fadeA(-oage):1),pastO=oage>0&&!osel;
       if(saO>.01){
+        if(o.sl&&osel)slSelOutline(o,R,.95); /* behind the body, so the body hides any outline that falls inside it */
         if(o.sl){skSlider(o.sl.path,R,saO,ccO);var tl2=o.sl.path[o.sl.path.length-1];if(o.sl.slides>1)skRev(o,R,ccO,saO);else ring(tl2.x,tl2.y,R*.45,'#fff',2,saO*.6)}
-        skBody(o.x,o.y,R,ccO,saO,pastO,false);if(osel){ring(o.x,o.y,R+6,txt,3,.95);if(o.sl)slSelOutline(o,R,.95)}
+        skBody(o.x,o.y,R,ccO,saO,pastO,false);if(osel)ring(o.x,o.y,R+6,txt,3,.95);
         skNum(o.x,o.y,R,o.num,saO,pastO);
         if(od>0&&od<=pre)skApproach(o.x,o.y,R,1+3*od/pre,ccO,.9*saO);
         if(o.sl&&st.ph>=o.time&&st.ph<=o.end)skBall(o,R,ccO)}
