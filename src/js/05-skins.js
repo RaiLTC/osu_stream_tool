@@ -116,6 +116,16 @@ function drawPaths(){
     ctx.lineDashOffset=0});
   ctx.setLineDash([]);ctx.globalAlpha=1}
 
+/* selection outline of a slider's whole body (the normal-circle ring, run along the path): two offset lines plus rings at the ends */
+function slSelOutline(o,R,al){var p=o.sl.path,n=p.length,off=R+6,L=[],Rt=[],i;if(n<2)return;
+  for(i=0;i<n;i++){var a=p[Math.max(0,i-1)],b=p[Math.min(n-1,i+1)],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,nx=-dy/d*off/S,ny=dx/d*off/S;
+    L.push({x:p[i].x+nx,y:p[i].y+ny});Rt.push({x:p[i].x-nx,y:p[i].y-ny})}
+  ctx.setLineDash([]);ctx.lineJoin='round';ctx.globalAlpha=al;ctx.strokeStyle=col['--text'];ctx.lineWidth=3;
+  [L,Rt].forEach(function(l){ctx.beginPath();ctx.moveTo(X(l[0].x),Y(l[0].y));for(i=1;i<l.length;i++)ctx.lineTo(X(l[i].x),Y(l[i].y));ctx.stroke()});
+  ring(p[n-1].x,p[n-1].y,off,col['--text'],3,al);ctx.globalAlpha=1}
+/* how opaque a circle / map object is drawn right now (1 = fully visible) */
+function circFade(q){var dt=q.time-st.ph,sa=st.vis===1?(dt<0?fadeA(dt):1):fadeA(dt);if(gvOn(q.b))sa=Math.max(sa,.75);return sa}
+function objFade(o){var od=o.time-st.ph,age=st.ph-o.end;return od>0?fadeA(od):(age>0?fadeA(-age):1)}
 function sliderPos(sl,d){
   var c=sl.cum,lo=1,hi=c.length-1;if(c.length<2)return sl.path[0];
   while(lo<hi){var m=(lo+hi)>>1;if(c[m]<d)lo=m+1;else hi=m}
@@ -220,11 +230,11 @@ function render(){
     if(o.mod||o.user){var ccO=comboI(o.ci),oage=st.ph-o.end,saO=od>0?fadeA(od):(oage>0?fadeA(-oage):1),pastO=oage>0&&!osel;
       if(saO>.01){
         if(o.sl){skSlider(o.sl.path,R,saO,ccO);var tl2=o.sl.path[o.sl.path.length-1];if(o.sl.slides>1)skRev(o,R,ccO,saO);else ring(tl2.x,tl2.y,R*.45,'#fff',2,saO*.6)}
-        skBody(o.x,o.y,R,ccO,saO,pastO,false);if(osel)ring(o.x,o.y,R+6,txt,3,.95);
+        skBody(o.x,o.y,R,ccO,saO,pastO,false);if(osel){ring(o.x,o.y,R+6,txt,3,.95);if(o.sl)slSelOutline(o,R,.95)}
         skNum(o.x,o.y,R,o.num,saO,pastO);
         if(od>0&&od<=pre)skApproach(o.x,o.y,R,1+3*od/pre,ccO,.9*saO);
         if(o.sl&&st.ph>=o.time&&st.ph<=o.end)skBall(o,R,ccO)}
-      else if(osel)ring(o.x,o.y,R+6,txt,3,.9);
+      else if(osel){ring(o.x,o.y,R+6,txt,3,.9);if(o.sl)slSelOutline(o,R,.9)}
       return}
     if(al<=0)return;
     if(o.sl)drawSlider(o,R,al*.8);

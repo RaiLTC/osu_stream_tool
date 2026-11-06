@@ -118,7 +118,11 @@ cv.addEventListener('pointerdown',function(e){
       st.aim=null;st.aimPrev=null;ndStart(st.nd,m);st.lm=m;ndApply();cv.setPointerCapture(e.pointerId);draw();return}}
   if(st.tool==='circle'){placeCircle(m,e);return}
   if(st.tool==='slider'){if(st.slHeld&&(e.buttons&1))return;st.slHeld=true;sliderClick(m,e);return}
-  if(st.tool==='delete'){if(c){st.csel=[c.b+':'+c.i];delCircles();checkpoint()}else{var oi0=objAt(m);if(oi0>=0){st.csel=['o:'+oi0];delCircles();checkpoint()}}draw();return}
+  if(st.tool==='delete'){
+    /* faded circles can only be deleted when they are selected */
+    var kF='Faded circles must be selected before they can be deleted';
+    if(c){var kc=c.b+':'+c.i;if(st.csel.indexOf(kc)<0&&circFade(c)<1){toast(kF);draw();return}st.csel=[c.b+':'+c.i];delCircles();checkpoint()}
+    else{var oi0=objAt(m);if(oi0>=0){var ko='o:'+oi0;if(st.csel.indexOf(ko)<0&&objFade(st.map.objs[oi0])<1){toast(kF);draw();return}st.csel=['o:'+oi0];delCircles();checkpoint()}}draw();return}
   var slh=st.tool==='select'?slHit(m,ctrl&&!sh):null;
   if(slh){slDown(slh,e,m);return}
   st.psel=null;
