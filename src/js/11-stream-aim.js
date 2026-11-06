@@ -155,6 +155,10 @@ cv.addEventListener('pointerdown',function(e){
   if(st.tool==='add'&&!e.altKey){
     var oiS=objAt(m);
     if(oiS>=0){var os=st.map.objs[oiS],snO=+$('snap').value,msO=modStyle(ctrl,sh);
+      /* pressing a slider nearer its end than its head starts the stream at the slider end (the slider stays); pressing the head replaces it as before */
+      var tl=null;if(os.sl&&(os.sl.slides||1)%2===1){var so2=(os.sh||0)*(st.soff||0),mt={x:m.x-so2,y:m.y-so2},te=os.sl.path[os.sl.path.length-1];
+        if(Math.hypot(mt.x-te.x,mt.y-te.y)<=st.radius&&Math.hypot(mt.x-te.x,mt.y-te.y)<Math.hypot(mt.x-os.x,mt.y-os.y))tl=te}
+      if(tl){var ts=Math.round(os.end);st.nd={b:null,style:msO,nodes:[{x:tl.x,y:tl.y}],tan0:msO?regTan(ts,tl.x,tl.y):null,s0:ts,sn0:snO,d:strD(ts,snO),fromO:os,tail:true,pm:m};cv.setPointerCapture(e.pointerId);return}
       st.nd={b:null,style:msO,nodes:[{x:os.x,y:os.y}],tan0:msO?regTan(os.time,os.x,os.y):null,s0:os.time,sn0:snO,d:strD(os.time,snO),fromO:os,pm:m};cv.setPointerCapture(e.pointerId);return}
     if(!sh&&!ctrl){var s0=Math.max(0,snapT(st.ph)),sn0=+$('snap').value;
     st.nd={b:null,nodes:[{x:cl(m.x,0,W),y:cl(m.y,0,H)}],tan0:null,s0:s0,sn0:sn0,d:strD(s0,sn0),pm:m};cv.setPointerCapture(e.pointerId);return}}
@@ -227,7 +231,7 @@ cv.addEventListener('pointerup',function(e){
   if(st.pend){var pp=st.pend;st.pend=null;if(!(pp.sh&&!pp.ctrl))selClick(pp.c,pp.ctrl,pp.sh);draw()}
   if(st.nd){var nb=st.nd.b,nd0=st.nd;
     if(nb){build();
-      if(nd0.fromO&&!nd0.ext&&nb.count>=2){var ixo=st.map.objs.indexOf(nd0.fromO);if(ixo>=0){st.map.objs.splice(ixo,1);objsChanged();build()}}
+      if(nd0.fromO&&!nd0.tail&&!nd0.ext&&nb.count>=2){var ixo=st.map.objs.indexOf(nd0.fromO);if(ixo>=0){st.map.objs.splice(ixo,1);objsChanged();build()}}
       if(nd0.ext){overrideOthers(nb);selectRange(nb,nd0.base.length,nb.pos.length-1);markFresh();phToEnd(nb)}
       else if(nb.count<2){dropBody(nb);st.csel=[];st.sel=[]}
       else{st.ph=nb.start;center();overrideOthers(nb);st.ab=nb.id;selectBody(nb.id);markFresh();phToEnd(nb)}}
@@ -294,14 +298,31 @@ function pasteSel(){
   newO.forEach(function(o){var ix=st.map.objs.indexOf(o);if(ix>=0)st.csel.push('o:'+ix)});
   if(last)st.ab=last.id;else st.ab=null;st.sel=[];syncPanel();checkpoint();draw();toast('Pasted at '+fmt(snapT(st.ph)))}
 function targets(){var ids={},r=[];st.csel.forEach(function(k){var a=parseKey(k);if(!a.o)ids[a.b]=1});Object.keys(ids).forEach(function(id){var B=bodyById(+id);if(B)r.push(B)});if(!r.length&&AB())r.push(AB());return r}
-function flip(ax){build();targets().forEach(function(B){var clean=B.psig===sigOf(B),f=function(p){if(ax==='x')p.x=W-p.x;else p.y=H-p.y};(B.pts||[]).forEach(f);(B.pos||[]).forEach(f);if(clean&&B.pts.length)B.psig=sigOf(B)});st.key='';checkpoint();draw()}
+/* selected map objects (circles and sliders), as the objects themselves */
+function selObjs(){var r=[];if(!st.map)return r;st.csel.forEach(function(k){var a=parseKey(k);if(a.o){var o=st.map.objs[a.i];if(o&&r.indexOf(o)<0)r.push(o)}});return r}
+function selBodyIds(){var ids={};st.csel.forEach(function(k){var a=parseKey(k);if(!a.o)ids[a.b]=1});return Object.keys(ids)}
+function flip(ax){build();var os=selObjs(),hasB=selBodyIds().length>0,f=function(p){if(ax==='x')p.x=W-p.x;else p.y=H-p.y};
+  if(hasB||!os.length)targets().forEach(function(B){var clean=B.psig===sigOf(B);(B.pts||[]).forEach(f);(B.pos||[]).forEach(f);if(clean&&B.pts.length)B.psig=sigOf(B)});
+  os.forEach(function(o){if(o.sl){uniqPts(o).forEach(f);slRepath(o,false)}else{f(o);o.mod=true}});
+  st.key='';checkpoint();draw()}
 function reverseBody(B){
   var cn=cl(Math.round(B.count)||2,1,500),nd={},nf={};build();if(!B.pos||B.pos.length<2)return;
   B.pos=B.pos.slice(0,cn).reverse();
   Object.keys(B.del).forEach(function(k){nd[cn-1-k]=1});Object.keys(B.ncf).forEach(function(k){nf[cn-1-k]=B.ncf[k]});
   if(B.ticks){var T=tickOf(B,cn-1),nt=[];for(var j=0;j<cn;j++)nt.push(T-tickOf(B,cn-1-j));B.ticks=nt}
   B.del=nd;B.ncf=nf;B.pts=[];B.psig=null;st.key=''}
-function reverse(){targets().forEach(reverseBody);st.csel=[];st.sel=[];checkpoint();draw()}
+/* lazer's "reverse selection" (Ctrl+G): selected map objects keep their positions but swap places in time, and sliders run the other way */
+function reverseSlider(o){var s=o.sl,nat=slPath(s.type,s.pts,0).len,tail=s.path[s.path.length-1],np=s.pts.slice().reverse();
+  if(s.len<nat-.5)np[0]={x:tail.x,y:tail.y};
+  s.pts=np;if(s.type==='perfect'&&np.length!==3)s.type='bezier';slRepath(o,false)}
+function reverseObjs(os){if(!os.length)return;
+  var t0=Infinity,t1=-Infinity;os.forEach(function(o){t0=Math.min(t0,o.time);t1=Math.max(t1,o.end==null?o.time:o.end)});
+  os.forEach(function(o){var e=o.end==null?o.time:o.end;o.time=Math.round(t1-(e-t0));o.mod=true;if(o.sl)reverseSlider(o)});
+  objsChanged();st.csel=os.map(function(o){return 'o:'+st.map.objs.indexOf(o)})}
+function reverse(){var os=selObjs(),hasB=selBodyIds().length>0;
+  if(hasB||!os.length){targets().forEach(reverseBody);if(!os.length){st.csel=[];st.sel=[]}}
+  if(os.length)reverseObjs(os);
+  checkpoint();draw()}
 $('flipH').onclick=function(){flip('x')};$('flipV').onclick=function(){flip('y')};$('rev').onclick=reverse;
 var STREAMS={add:1,draw:1,bend:1};
 function toolGroup(t){return STREAMS[t]?'stream':t}

@@ -41,6 +41,9 @@ document.addEventListener('keydown',function(e){
   if(ctrl&&k==='c'){e.preventDefault();copySel();return}
   if(ctrl&&k==='x'){e.preventDefault();if(copySel()){delCircles();checkpoint();draw()}return}
   if(ctrl&&k==='v'){e.preventDefault();pasteSel();return}
+  if(ctrl&&!e.shiftKey&&!e.altKey&&k==='g'){e.preventDefault();reverse();return}
+  if(ctrl&&!e.shiftKey&&!e.altKey&&k==='h'){e.preventDefault();flip('x');return}
+  if(ctrl&&!e.shiftKey&&!e.altKey&&k==='j'){e.preventDefault();flip('y');return}
   if(ctrl)return;
   if(k==='escape'&&st.slp){st.slp=null;draw();return}
   if(st.slp&&k==='tab'){e.preventDefault();cycleSlType(e.shiftKey?-1:1);return}
