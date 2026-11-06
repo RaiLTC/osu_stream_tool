@@ -73,7 +73,7 @@ function placeCircle(m,e){var t=snapT(st.ph),q={x:cl(m.x,0,W),y:cl(m.y,0,H)},sn=
 function sliderClick(m,e){var q={x:Math.round(cl(m.x,0,W)),y:Math.round(cl(m.y,0,H))};if(!(e&&e.altKey)){var sk0=nearSnap(q.x,q.y,null,null);if(sk0)q={x:Math.round(sk0.x),y:Math.round(sk0.y)}}
   if(!st.slp){st.slp={time:snapT(st.ph),pts:[q],hd:{cx:e.clientX,cy:e.clientY}};try{cv.setPointerCapture(e.pointerId)}catch(_){}draw();return}
   var S=st.slp,last=S.pts[S.pts.length-1];
-  if(e&&e.shiftKey&&(S.pts.length===1||st.slType==='linear'))q=snapAng(last,q);
+  if(e&&e.shiftKey)return; /* Shift only snaps the angle preview; it never adds an anchor (release Shift to click) */
   if(Math.hypot(q.x-last.x,q.y-last.y)<9){if(S.pts.length<2||S.pts[S.pts.length-2]!==last)S.pts.push(last)}
   else S.pts.push(q);
   draw()}
