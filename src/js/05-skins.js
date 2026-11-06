@@ -117,12 +117,14 @@ function drawPaths(){
   ctx.setLineDash([]);ctx.globalAlpha=1}
 
 /* selection outline of a slider's whole body (the normal-circle ring, run along the path): two offset lines plus rings at the ends */
-function slSelOutline(o,R,al){var p=o.sl.path,n=p.length,off=R+6,L=[],Rt=[],i;if(n<2)return;
-  for(i=0;i<n;i++){var a=p[Math.max(0,i-1)],b=p[Math.min(n-1,i+1)],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,nx=-dy/d*off/S,ny=dx/d*off/S;
-    L.push({x:p[i].x+nx,y:p[i].y+ny});Rt.push({x:p[i].x-nx,y:p[i].y-ny})}
-  ctx.setLineDash([]);ctx.lineJoin='round';ctx.globalAlpha=al;ctx.strokeStyle=col['--text'];ctx.lineWidth=3;
-  [L,Rt].forEach(function(l){ctx.beginPath();ctx.moveTo(X(l[0].x),Y(l[0].y));for(i=1;i<l.length;i++)ctx.lineTo(X(l[i].x),Y(l[i].y));ctx.stroke()});
-  ring(p[n-1].x,p[n-1].y,off,col['--text'],3,al);ctx.globalAlpha=1}
+function slSelOutline(o,R,al){var p=o.sl.path,n=p.length,off=R+6,OL=slSelOutline.cv||(slSelOutline.cv=document.createElement('canvas'));if(n<2)return;
+  /* one outline around the whole body: stroke the path wide, then cut the inside out, so a slider that bends over itself shows no inner lines */
+  if(OL.width!==cv.width||OL.height!==cv.height){OL.width=cv.width;OL.height=cv.height}
+  var g=OL.getContext('2d');g.clearRect(0,0,OL.width,OL.height);g.lineCap='round';g.lineJoin='round';
+  var tr=function(){g.beginPath();p.forEach(function(q,i){i?g.lineTo(X(q.x),Y(q.y)):g.moveTo(X(q.x),Y(q.y))})};
+  tr();g.lineWidth=2*off+3;g.strokeStyle=col['--text'];g.stroke();
+  g.globalCompositeOperation='destination-out';tr();g.lineWidth=2*off-3;g.stroke();g.globalCompositeOperation='source-over';
+  ctx.setLineDash([]);ctx.globalAlpha=al;ctx.drawImage(OL,0,0);ctx.globalAlpha=1}
 /* how opaque a circle / map object is drawn right now (1 = fully visible) */
 function circFade(q){var dt=q.time-st.ph,sa=st.vis===1?(dt<0?fadeA(dt):1):fadeA(dt);if(gvOn(q.b))sa=Math.max(sa,.75);return sa}
 function objFade(o){var od=o.time-st.ph,age=st.ph-o.end;return od>0?fadeA(od):(age>0?fadeA(-age):1)}
