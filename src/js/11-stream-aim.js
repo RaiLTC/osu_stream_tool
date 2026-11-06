@@ -167,8 +167,8 @@ cv.addEventListener('pointermove',function(e){
   if(st.bd){bendApply(m);return}
   if(st.rd){rotDragMove(e,m);return}
   if(st.slp&&st.slp.hd){var hd=st.slp.hd;
-    if(!hd.free&&(e.buttons&1)&&Math.hypot(e.clientX-hd.cx,e.clientY-hd.cy)>=16){hd.free=true;hd.raw=[st.slp.pts[0]]}
-    if(hd.free){var lr=hd.raw[hd.raw.length-1],qf={x:cl(m.x,0,W),y:cl(m.y,0,H)};if(Math.hypot(qf.x-lr.x,qf.y-lr.y)>=3)hd.raw.push(qf)}}
+    /* holding the button and dragging far enough just moves one end anchor around (no freehand); releasing places it */
+    if(!hd.drag&&(e.buttons&1)&&Math.hypot(e.clientX-hd.cx,e.clientY-hd.cy)>=16)hd.drag=true}
   if(st.slp||st.tool==='circle'||st.tool==='slider'){draw()}
   if(st.pd){slDrag(e,m);return}
   if(st.od){var od=st.od;
@@ -216,7 +216,7 @@ function markFresh(){var fk={};st.csel.forEach(function(k){fk[k]=1});st.fresh={k
 cv.addEventListener('pointerup',function(e){
   if(st.rd){var rd0=st.rd;st.rd=null;if(rd0.begun)rotCommit();draw();return}
   if(st.slp&&st.slp.hd){var hd0=st.slp.hd;
-    if(hd0.free){if(slBuild(true)){finishSlider();draw();return}hd0.free=false}
+    if(hd0.drag){if(slBuild(true)){finishSlider();draw();return}hd0.drag=false}
     st.slp.hd=null}
   if(st.pd){var pd0=st.pd;st.pd=null;if(!pd0.started&&pd0.single)st.psel=[pd0.q];if(pd0.started||pd0.added)checkpoint();draw();return}
   if(st.od){var od0=st.od;st.od=null;if(!od0.started&&od0.single){st.csel=[od0.key];st.canc=od0.key}checkpoint();draw();return}

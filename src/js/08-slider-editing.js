@@ -6,6 +6,8 @@ function selSliders(){var r=[];if(!st.map)return r;st.csel.forEach(function(k){v
 function uniqPts(o){var u=[];o.sl.pts.forEach(function(q){if(u.indexOf(q)<0)u.push(q)});return u}
 function pselOf(o){return(st.po===o&&st.psel)?st.psel.filter(function(q){return o.sl.pts.indexOf(q)>0}):[]}
 function slNorm(s){if(s.type==='perfect'&&s.pts.length!==3)s.type='bezier'}
+/* lazer: after control points change, the slider length follows the path (its calculated length snapped to the beat divisor) - HitObject.SnapTo(distanceSnapProvider) */
+function slRepathSnap(o){var s=o.sl,pl=slPath(s.type,s.pts,0).len;if(pl>=2)s.len=slSnapLen(o.time,pl,s.slides||1);slRepath(o,true)}
 function slRepath(o,lenCh){var s=o.sl;slNorm(s);var r=slPath(s.type,s.pts,s.len);s.path=r.path;s.cum=r.cum;o.x=s.pts[0].x;o.y=s.pts[0].y;o.mod=true;if(lenCh)recSliders()}
 function slHit(m,ctrl){var best=null,bd=1e9,R0=st.radius,ss=selSliders(),i;
   ss.forEach(function(o){var so=(o.sh||0)*(st.soff||0);
@@ -41,7 +43,7 @@ function slDrag(e,m){var pd=st.pd,po=pd.o,ps=po.sl;
       if(rf){var spp=snapAng(rf,{x:pd.g.x+ddx,y:pd.g.y+ddy});ddx=spp.x-pd.g.x;ddy=spp.y-pd.g.y}}
     var ap=function(dx,dy){pd.ps.forEach(function(z){z.q.x=z.x+dx;z.q.y=z.y+dy})};
     ap(ddx,ddy);if(slPath(ps.type,ps.pts,0).len<2)ap(pd.dx,pd.dy);else{pd.dx=ddx;pd.dy=ddy}
-    slRepath(po,false)}
+    slRepathSnap(po)}
   else if(pd.kind==='tail'){
     var cc0=(ps.type==='perfect'&&ps.pts.length===3)?circ3(ps.pts[0],ps.pts[1],ps.pts[2]):null,r0=slPath(ps.type,ps.pts,cc0?2*Math.PI*cc0.r:0),Pp=r0.path,E=Pp[Pp.length-1],Q=Pp[Math.max(0,Pp.length-2)],dl=Math.hypot(E.x-Q.x,E.y-Q.y)||1,
         ext=Pp.concat([{x:E.x+(E.x-Q.x)/dl*900,y:E.y+(E.y-Q.y)/dl*900}]),nr=nearOnLine(ext,cumOf(ext),{x:m.x-so,y:m.y-so});
@@ -59,7 +61,7 @@ function slDup(o){var s=o.sl,ps=pselOf(o);if(!ps.length)return;
 function slDelPts(o){var s=o.sl,ps=pselOf(o);if(!ps.length)return;
   ps.forEach(function(q){var ix=s.pts.indexOf(q);if(ix>0)s.pts.splice(ix,1)});
   if(slDistinct(s.pts)<2||slPath(s.type,s.pts,0).len<2){var i=st.map.objs.indexOf(o);if(i>=0)st.map.objs.splice(i,1);objsChanged();st.csel=[];st.psel=null;toast('Slider removed');checkpoint();draw();return}
-  st.psel=null;slRepath(o,false);checkpoint();draw()}
+  st.psel=null;slRepathSnap(o);checkpoint();draw()}
 function openPtMenu(e,h){var o=h.o;if(pselOf(o).indexOf(h.q)<0){st.po=o;st.psel=[h.q]}
   var NM={linear:'Linear',bezier:'Bezier',perfect:'Perfect curve',catmull:'Catmull'};
   menu.innerHTML=SLTYPES.map(function(t){return '<button data-a="'+t+'">'+NM[t]+(t===o.sl.type?'  \u2713':'')+'</button>'}).join('')+'<hr><button data-a="dup">Duplicate point (red anchor)</button><button data-a="del">Delete point</button>';

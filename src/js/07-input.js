@@ -263,33 +263,11 @@ function degTxt(d){var q=Math.round(d/90),off=-(d-q*90),arr=['→','↑','←','
   if(st.shift&&Math.abs(off-Math.round(off))<.3)v=Math.round(off);/* + = clockwise */
   return arr+' '+(v>0?'+':'')+(Number.isInteger(v)?v:v.toFixed(1))+'°'}
 /* lazer: click + drag from the head draws the slider freehand; the stroke is fitted to a straight line, a perfect-curve arc or a smooth bezier */
-function rdpPts(P,eps){if(P.length<3)return P.slice();var a=P[0],b=P[P.length-1],L=Math.hypot(b.x-a.x,b.y-a.y),md=0,mi=0,i;
-  for(i=1;i<P.length-1;i++){var d=L<1e-6?Math.hypot(P[i].x-a.x,P[i].y-a.y):Math.abs((P[i].x-a.x)*(b.y-a.y)-(P[i].y-a.y)*(b.x-a.x))/L;if(d>md){md=d;mi=i}}
-  if(md<=eps)return[a,b];var l=rdpPts(P.slice(0,mi+1),eps),r=rdpPts(P.slice(mi),eps);return l.slice(0,-1).concat(r)}
-function catBez(V){var out=[V[0]],n=V.length,i;
-  for(i=0;i<n-1;i++){var p0=V[i-1]||V[i],p1=V[i],p2=V[i+1],p3=V[i+2]||V[i+1];
-    out.push({x:Math.round(p1.x+(p2.x-p0.x)/6),y:Math.round(p1.y+(p2.y-p0.y)/6)},{x:Math.round(p2.x-(p3.x-p1.x)/6),y:Math.round(p2.y-(p3.y-p1.y)/6)},p2);if(i<n-2)out.push(p2)}
-  return out}
-function slFit(raw){var n=raw.length;if(n<2)return null;var cum=[0],i;for(i=1;i<n;i++)cum.push(cum[i-1]+Math.hypot(raw[i].x-raw[i-1].x,raw[i].y-raw[i-1].y));
-  var tot=cum[n-1];if(tot<6)return null;
-  var H={x:Math.round(raw[0].x),y:Math.round(raw[0].y)},E={x:Math.round(raw[n-1].x),y:Math.round(raw[n-1].y)},L=Math.hypot(E.x-H.x,E.y-H.y);if(L<4)return null;
-  var dev=0;raw.forEach(function(p){dev=Math.max(dev,Math.abs((p.x-H.x)*(E.y-H.y)-(p.y-H.y)*(E.x-H.x))/L)});
-  var v=rdpPts(raw,6).map(function(p){return{x:Math.round(p.x),y:Math.round(p.y)}});v[0]=H;v[v.length-1]=E;
-  var mi=0;while(mi<n-1&&cum[mi]<tot/2)mi++;var M0={x:Math.round(raw[mi].x),y:Math.round(raw[mi].y)},c=circ3(H,M0,E),p3=null;
-  if(c&&c.r>8&&c.r<3000){var md=0;raw.forEach(function(p){md=Math.max(md,Math.abs(Math.hypot(p.x-c.x,p.y-c.y)-c.r))});if(md<=Math.max(5,c.r*.06))p3=[H,M0,E]}
-  var res={v:v.length>=2?v:[H,E],p3:p3};
-  if(dev<=5||v.length<3){res.type='linear';res.pts=[H,E]}
-  else if(p3){res.type='perfect';res.pts=p3}
-  else{res.type='bezier';res.pts=catBez(v)}
-  return res}
 function slBuild(withCursor){var S=st.slp,pts=S.pts.slice(),ty,mt=(st.slType&&st.slType!=='auto')?st.slType:null;
-  if(S.hd&&S.hd.free){var ft=slFit(S.hd.raw);if(!ft)return null;pts=ft.pts;ty=ft.type;
-    if(mt){ty=mt;pts=(mt==='perfect'&&ft.p3)?ft.p3:ft.v;if(mt==='perfect'&&!ft.p3)ty='bezier'}}
-  else{
-    if(withCursor&&st.lm){var last=pts[pts.length-1],q={x:Math.round(cl(st.lm.x,0,W)),y:Math.round(cl(st.lm.y,0,H))};
-      if(st.shift&&(pts.length===1||mt==='linear'))q=snapAng(last,q);
-      if(Math.hypot(q.x-last.x,q.y-last.y)>=9)pts.push(q)}
-    ty=mt||slAuto(pts)}
+  if(withCursor&&st.lm){var last=pts[pts.length-1],q={x:Math.round(cl(st.lm.x,0,W)),y:Math.round(cl(st.lm.y,0,H))};
+    if(st.shift&&(pts.length===1||mt==='linear'))q=snapAng(last,q);
+    if(Math.hypot(q.x-last.x,q.y-last.y)>=9)pts.push(q)}
+  ty=mt||slAuto(pts);
   if(slDistinct(pts)<2)return null;
   if(ty==='perfect'&&pts.length!==3)ty='bezier';
   var r0=slPath(ty,pts,0),L=slSnapLen(S.time,r0.len,1),r=slPath(ty,pts,L);
