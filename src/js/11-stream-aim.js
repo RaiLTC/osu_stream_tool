@@ -159,10 +159,12 @@ cv.addEventListener('pointerdown',function(e){
   if(st.tool==='add'&&!e.altKey){
     var oiS=objAt(m);
     if(oiS>=0){var os=st.map.objs[oiS],snO=+$('snap').value,msO=modStyle(ctrl,sh);
-      /* pressing a slider nearer its end than its head starts the stream at the slider end (the slider stays); pressing the head replaces it as before */
+      /* pressing a slider nearer its end than its head starts the stream at the slider end, otherwise at its head */
       var tl=null;if(os.sl&&(os.sl.slides||1)%2===1){var so2=(os.sh||0)*(st.soff||0),mt={x:m.x-so2,y:m.y-so2},te=os.sl.path[os.sl.path.length-1];
         if(Math.hypot(mt.x-te.x,mt.y-te.y)<=st.radius&&Math.hypot(mt.x-te.x,mt.y-te.y)<Math.hypot(mt.x-os.x,mt.y-os.y))tl=te}
-      if(tl){var ts=Math.round(os.end);st.nd={b:null,style:msO,nodes:[{x:tl.x,y:tl.y}],tan0:msO?regTan(ts,tl.x,tl.y):null,s0:ts,sn0:snO,d:strD(ts,snO),fromO:os,tail:true,pm:m};cv.setPointerCapture(e.pointerId);return}
+      /* from a slider the stream starts at the playhead (not at the slider's own time), and the slider stays */
+      var sT=Math.max(0,snapT(st.ph));
+      if(os.sl){var sp=tl||{x:os.x,y:os.y};st.nd={b:null,style:msO,nodes:[{x:sp.x,y:sp.y}],tan0:msO?regTan(sT,sp.x,sp.y):null,s0:sT,sn0:snO,d:strD(sT,snO),fromO:os,tail:true,pm:m};cv.setPointerCapture(e.pointerId);return}
       st.nd={b:null,style:msO,nodes:[{x:os.x,y:os.y}],tan0:msO?regTan(os.time,os.x,os.y):null,s0:os.time,sn0:snO,d:strD(os.time,snO),fromO:os,pm:m};cv.setPointerCapture(e.pointerId);return}
     if(!sh&&!ctrl){var s0=Math.max(0,snapT(st.ph)),sn0=+$('snap').value;
     st.nd={b:null,nodes:[{x:cl(m.x,0,W),y:cl(m.y,0,H)}],tan0:null,s0:s0,sn0:sn0,d:strD(s0,sn0),pm:m};cv.setPointerCapture(e.pointerId);return}}

@@ -5,6 +5,8 @@ var PTR=8,OFS2=null;
 function selSliders(){var r=[];if(!st.map)return r;st.csel.forEach(function(k){var a=parseKey(k);if(a.o){var o=st.map.objs[a.i];if(o&&o.sl&&r.indexOf(o)<0)r.push(o)}});return r}
 function uniqPts(o){var u=[];o.sl.pts.forEach(function(q){if(u.indexOf(q)<0)u.push(q)});return u}
 function pselOf(o){return(st.po===o&&st.psel)?st.psel.filter(function(q){return o.sl.pts.indexOf(q)>0}):[]}
+/* same, but the head counts too (it carries the first segment's type) */
+function pselTypeOf(o){return(st.po===o&&st.psel)?st.psel.filter(function(q){return o.sl.pts.indexOf(q)>=0}):[]}
 /* a perfect-curve segment needs exactly 3 points, otherwise it is drawn as a bezier */
 function slNorm(s){slRanges(s.type,s.pts).forEach(function(r){if(r.ty==='perfect'&&r.b-r.a+1!==3){if(r.a===0)s.type='bezier';else s.pts[r.a].type='bezier'}})}
 /* type of the segment that starts at anchor index ix (or, for the last anchor, the segment that ends there) */
@@ -12,10 +14,11 @@ function slSegTypeAt(s,ix){var rg=slRanges(s.type,s.pts),k;for(k=0;k<rg.length;k
 /* lazer: after control points change, the slider length follows the path (its calculated length snapped to the beat divisor) - HitObject.SnapTo(distanceSnapProvider) */
 function slRepathSnap(o){var s=o.sl,pl=slPath(s.type,s.pts,0).len;if(pl>=2)s.len=slSnapLen(o.time,pl,s.slides||1);slRepath(o,true)}
 function slRepath(o,lenCh){var s=o.sl;slNorm(s);var r=slPath(s.type,s.pts,s.len);s.path=r.path;s.cum=r.cum;o.x=s.pts[0].x;o.y=s.pts[0].y;o.mod=true;if(lenCh)recSliders()}
-function slHit(m,ctrl){var best=null,bd=1e9,R0=st.radius,ss=selSliders(),i;
+function slHit(m,ctrl,head){var best=null,bd=1e9,R0=st.radius,ss=selSliders(),i;
   ss.forEach(function(o){var so=(o.sh||0)*(st.soff||0);
     uniqPts(o).forEach(function(q){if(q===o.sl.pts[0])return;var d=Math.hypot(q.x+so-m.x,q.y+so-m.y);if(d<=PTR&&d<bd){bd=d;best={o:o,q:q,k:'pt'}}})});
   if(best)return best;
+  if(head){for(i=ss.length-1;i>=0;i--){var oh=ss[i],soh=(oh.sh||0)*(st.soff||0);if(Math.hypot(oh.x+soh-m.x,oh.y+soh-m.y)<=R0)return{o:oh,q:oh.sl.pts[0],k:'pt'}}}
   if(ctrl){for(i=ss.length-1;i>=0;i--){var o2=ss[i],so2=(o2.sh||0)*(st.soff||0),mm={x:m.x-so2,y:m.y-so2};
       if(Math.hypot(o2.x-mm.x,o2.y-mm.y)>R0&&distPath(o2.sl.path,mm)<=R0*.8)return{o:o2,k:'body'}}
     return null}
@@ -69,12 +72,12 @@ function slSetPtType(o,qs,t){
   if(any)slRepath(o,false);
   return any}
 /* apply a type to a slider: to the selected anchors when there are some, otherwise to the whole slider */
-function slTypeApply(o,t){var s=o.sl,qs=pselOf(o);
+function slTypeApply(o,t){var s=o.sl,qs=pselTypeOf(o);
   if(qs.length)return slSetPtType(o,qs,t);
   if(t==='perfect'&&s.pts.length!==3)return false;
   s.type=t;s.pts.forEach(function(q,i){if(i)delete q.type});slRepath(o,false);return true}
 function slSetType(o,t){if(!slTypeApply(o,t)){toast('Perfect curve needs 3 points in its segment');return}checkpoint();draw()}
-function cycleSelSlType(d){var ss=selSliders();if(!ss.length)return false;var o0=ss[0],q0=pselOf(o0)[0],cur=q0?slSegTypeAt(o0.sl,o0.sl.pts.indexOf(q0)):o0.sl.type,i=SLTYPES.indexOf(cur),n=SLTYPES.length;
+function cycleSelSlType(d){var ss=selSliders();if(!ss.length)return false;var o0=ss[0],q0=pselTypeOf(o0)[0],cur=q0?slSegTypeAt(o0.sl,o0.sl.pts.indexOf(q0)):o0.sl.type,i=SLTYPES.indexOf(cur),n=SLTYPES.length;
   for(var k=1;k<=n;k++){var t=SLTYPES[((i+d*k)%n+n)%n];
     if(ss.filter(function(o){return slTypeApply(o,t)}).length){checkpoint();toast('Curve: '+t);draw();return true}}
   return true}
@@ -85,9 +88,9 @@ function slDelPts(o){var s=o.sl,ps=pselOf(o);if(!ps.length)return;
   ps.forEach(function(q){var ix=s.pts.indexOf(q);if(ix>0)s.pts.splice(ix,1)});
   if(slDistinct(s.pts)<2||slPath(s.type,s.pts,0).len<2){var i=st.map.objs.indexOf(o);if(i>=0)st.map.objs.splice(i,1);objsChanged();st.csel=[];st.psel=null;toast('Slider removed');checkpoint();draw();return}
   st.psel=null;slRepathSnap(o);checkpoint();draw()}
-function openPtMenu(e,h){var o=h.o;if(pselOf(o).indexOf(h.q)<0){st.po=o;st.psel=[h.q]}
+function openPtMenu(e,h){var o=h.o;if(pselTypeOf(o).indexOf(h.q)<0){st.po=o;st.psel=[h.q]}
   var NM={linear:'Linear',bezier:'Bezier',perfect:'Perfect curve',catmull:'Catmull'};
-  menu.innerHTML=SLTYPES.map(function(t){return '<button data-a="'+t+'">'+NM[t]+(t===slSegTypeAt(o.sl,Math.max(0,o.sl.pts.indexOf(h.q)))?'  \u2713':'')+'</button>'}).join('')+'<hr><button data-a="dup">Duplicate point (red anchor)</button><button data-a="del">Delete point</button>';
+  menu.innerHTML=SLTYPES.map(function(t){return '<button data-a="'+t+'">'+NM[t]+(t===slSegTypeAt(o.sl,Math.max(0,o.sl.pts.indexOf(h.q)))?'  \u2713':'')+'</button>'}).join('')+(h.q===o.sl.pts[0]?'':'<hr><button data-a="dup">Duplicate point (red anchor)</button><button data-a="del">Delete point</button>');
   menu.style.display='block';menu.style.left=Math.min(e.clientX,innerWidth-210)+'px';menu.style.top=Math.min(e.clientY,innerHeight-230)+'px';draw()}
 function circ3(a,b,c){var d=2*(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y));if(Math.abs(d)<1e-6)return null;
   var A=a.x*a.x+a.y*a.y,B=b.x*b.x+b.y*b.y,C=c.x*c.x+c.y*c.y,ux=(A*(b.y-c.y)+B*(c.y-a.y)+C*(a.y-b.y))/d,uy=(A*(c.x-b.x)+B*(a.x-c.x)+C*(b.x-a.x))/d;return{x:ux,y:uy,r:Math.hypot(a.x-ux,a.y-uy)}}
