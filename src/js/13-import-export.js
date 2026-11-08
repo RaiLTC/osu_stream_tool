@@ -159,6 +159,7 @@ $('tzo').onclick=function(){zoomTo((st.tzT||st.tz)/1.25)};$('tzi').onclick=funct
 $('skinBtn').onclick=function(){$('skinFile').click()};
 $('skinFile').onchange=function(e){Array.prototype.forEach.call(e.target.files||[],function(f){loadSkin(f)});e.target.value=''};
 $('skinSel').onchange=function(){applySkin($('skinSel').value)};
+$('fpOn').onchange=draw;
 $('file').onchange=function(e){
   var fs=Array.prototype.slice.call(e.target.files);e.target.value='';
   var oszf=fs.filter(function(f){return /\.osz$/i.test(f.name)})[0];
